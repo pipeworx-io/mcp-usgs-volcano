@@ -1,0 +1,20 @@
+{
+  "name": "@pipeworx/mcp-usgs-volcano",
+  "version": "0.1.0",
+  "description": "USGS Volcano MCP — Volcano Hazards Program HANS-public feed (no auth)",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "keywords": ["mcp", "mcp-server", "model-context-protocol", "pipeworx", "usgs-volcano"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pipeworx-io/mcp-usgs-volcano"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
