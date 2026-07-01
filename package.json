@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-usgs-volcano",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "USGS Volcano MCP — Volcano Hazards Program HANS-public feed (no auth)",
   "type": "module",
   "main": "src/index.ts",

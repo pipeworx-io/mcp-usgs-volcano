@@ -75,16 +75,15 @@ const tools: McpToolExport['tools'] = [
 ];
 
 async function callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-  switch (name) {
-    case 'list_volcanoes':
-      return listVolcanoes(args.observatory as string | undefined);
-    case 'list_elevated':
-      return listElevated();
-    case 'list_notices':
-      return listNotices(args.volcano_slug as string | undefined, (args.limit as number) ?? 50);
-    default:
-      throw new Error(`Unknown tool: ${name}`);
-  }
+  // list_elevated re-pointed to the renamed getCAPElevated action (2026-06-11).
+  if (name === 'list_elevated') return await listElevated();
+
+  // Re-pointed 2026-07: USGS HANS renamed getAllVolcanoes -> getMonitoredVolcanoes
+  // (each record carries the volcano's latest notice) and dropped the standalone
+  // notices action, so both tools are served from that one endpoint now.
+  if (name === 'list_volcanoes') return await listVolcanoes(args.observatory as string | undefined);
+  if (name === 'list_notices') return await listNotices(args.volcano_slug as string | undefined, (args.limit as number) ?? 20);
+  throw new Error(`Unknown tool: ${name}`);
 }
 
 async function hansFetch<T>(path: string): Promise<T> {
@@ -96,109 +95,122 @@ async function hansFetch<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-interface VolcanoRecord {
+// getMonitoredVolcanoes returns one record per monitored volcano, each carrying
+// its latest alert + notice.
+interface MonitoredRecord {
   volcano_name?: string;
-  url_name?: string;
-  observatory?: string;
+  vnum?: string;
+  volcano_cd?: string;
+  obs_abbr?: string;
+  obs_fullname?: string;
   alert_level?: string;
   color_code?: string;
-  obs_abbr?: string;
-  latitude?: number;
-  longitude?: number;
-  elevation?: number;
-  vnum?: string;
-  synonyms?: string;
-  alert_url?: string;
-  alert_message?: string;
-  date_modified?: string;
+  sent_utc?: string;
+  sent_unixtime?: number;
+  notice_type_cd?: string;
+  notice_identifier?: string;
+  notice_url?: string;
+  notice_data?: string;
 }
 
-function normalizeVolcano(v: VolcanoRecord) {
+function slugify(name?: string): string | null {
+  return name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : null;
+}
+
+function normalizeVolcano(v: MonitoredRecord) {
   return {
     name: v.volcano_name ?? null,
-    slug: v.url_name ?? null,
-    observatory: v.observatory ?? v.obs_abbr ?? null,
+    slug: slugify(v.volcano_name),
+    observatory: v.obs_abbr ?? null,
+    observatory_full: v.obs_fullname ?? null,
     alert_level: v.alert_level ?? null,
     color_code: v.color_code ?? null,
-    latitude: v.latitude ?? null,
-    longitude: v.longitude ?? null,
-    elevation_m: v.elevation ?? null,
     vnum: v.vnum ?? null,
-    synonyms: v.synonyms ?? null,
-    alert_message: v.alert_message ?? null,
-    alert_url: v.alert_url ?? null,
-    modified: v.date_modified ?? null,
+    latest_notice_type: v.notice_type_cd ?? null,
+    latest_notice_url: v.notice_url ?? null,
+    updated_utc: v.sent_utc ?? null,
   };
 }
 
 async function listVolcanoes(observatory: string | undefined) {
-  const data = await hansFetch<VolcanoRecord[]>('/volcano/getAllVolcanoes');
+  const data = await hansFetch<MonitoredRecord[]>('/volcano/getMonitoredVolcanoes');
   const all = (data ?? []).map(normalizeVolcano);
   const filtered = observatory
-    ? all.filter(
-        (v) => v.observatory?.toLowerCase() === observatory.toLowerCase(),
-      )
+    ? all.filter((v) => v.observatory?.toLowerCase() === observatory.toLowerCase())
     : all;
-  return {
-    total: all.length,
-    returned: filtered.length,
-    volcanoes: filtered,
-  };
+  return { total: all.length, returned: filtered.length, volcanoes: filtered };
+}
+
+// USGS HANS renamed elevated/getElevatedVolcanoes → volcano/getCAPElevated
+// (CAP = Common Alerting Protocol) with new field names. Re-pointed 2026-06-11.
+interface CapElevatedRecord {
+  volcano_name_appended?: string;
+  latitude?: number;
+  longitude?: number;
+  vnum?: string;
+  elevation_meters?: number;
+  obs_fullname?: string;
+  alert_level?: string;
+  color_code?: string;
+  cap_certainty?: string;
+  cap_severity?: string;
+  cap_urgency?: string;
+  notice_identifier?: string;
+  sent_date_cap?: string;
 }
 
 async function listElevated() {
-  const data = await hansFetch<VolcanoRecord[]>('/elevated/getElevatedVolcanoes');
-  const list = (data ?? []).map(normalizeVolcano);
+  const data = await hansFetch<CapElevatedRecord[]>('/volcano/getCAPElevated');
+  const list = (data ?? []).map((v) => ({
+    volcano_name: v.volcano_name_appended ?? null,
+    alert_level: v.alert_level ?? null,
+    color_code: v.color_code ?? null,
+    observatory: v.obs_fullname ?? null,
+    latitude: v.latitude ?? null,
+    longitude: v.longitude ?? null,
+    elevation_m: v.elevation_meters ?? null,
+    vnum: v.vnum ?? null,
+    cap_certainty: v.cap_certainty ?? null,
+    cap_severity: v.cap_severity ?? null,
+    cap_urgency: v.cap_urgency ?? null,
+    notice_id: v.notice_identifier ?? null,
+    sent_at: v.sent_date_cap ?? null,
+  }));
   return {
     count: list.length,
-    note: 'All volcanoes currently above Normal/Green status (advisories, watches, or warnings).',
+    note: 'Volcanoes currently above Normal/Green status (advisory / watch / warning), with CAP alert details. Source: USGS HANS getCAPElevated.',
     volcanoes: list,
   };
 }
 
-interface NoticeRecord {
-  notice_id?: string;
-  volcano_name?: string;
-  url_name?: string;
-  observatory?: string;
-  message_type?: string;
-  alert_level?: string;
-  color_code?: string;
-  sent_utc?: string;
-  date_modified?: string;
-  url?: string;
-  summary?: string;
-  full_message?: string;
-}
-
-function normalizeNotice(n: NoticeRecord) {
+function normalizeNotice(n: MonitoredRecord) {
   return {
-    id: n.notice_id ?? null,
     volcano: n.volcano_name ?? null,
-    slug: n.url_name ?? null,
-    observatory: n.observatory ?? null,
-    type: n.message_type ?? null,
+    slug: slugify(n.volcano_name),
+    observatory: n.obs_abbr ?? null,
+    type: n.notice_type_cd ?? null,
+    notice_id: n.notice_identifier ?? null,
     alert_level: n.alert_level ?? null,
     color_code: n.color_code ?? null,
-    sent_utc: n.sent_utc ?? n.date_modified ?? null,
-    summary: n.summary ?? null,
-    message: n.full_message ?? null,
-    url: n.url ?? null,
+    sent_utc: n.sent_utc ?? null,
+    url: n.notice_url ?? null,
+    message: n.notice_data ?? null,
   };
 }
 
 async function listNotices(volcanoSlug: string | undefined, limit: number) {
-  // The HANS notices endpoint accepts the slug directly when filtering one volcano.
-  const path = volcanoSlug
-    ? `/notice/getVolcanoNotices?volcano=${encodeURIComponent(volcanoSlug)}`
-    : '/notice/getNotices';
-  const data = await hansFetch<NoticeRecord[]>(path);
-  const list = (data ?? []).slice(0, Math.max(1, limit)).map(normalizeNotice);
-  return {
-    volcano_slug: volcanoSlug ?? null,
-    count: list.length,
-    notices: list,
-  };
+  // No standalone notices action survives the HANS rename; each monitored
+  // volcano carries its latest notice, so derive the list from
+  // getMonitoredVolcanoes (sorted newest-first, optionally filtered by volcano).
+  const data = await hansFetch<MonitoredRecord[]>('/volcano/getMonitoredVolcanoes');
+  let list = (data ?? []).filter((n) => n.notice_identifier || n.notice_url);
+  if (volcanoSlug) {
+    const s = volcanoSlug.toLowerCase();
+    list = list.filter((n) => slugify(n.volcano_name)?.includes(s) || n.volcano_cd?.toLowerCase() === s);
+  }
+  list.sort((a, b) => (b.sent_unixtime ?? 0) - (a.sent_unixtime ?? 0));
+  const notices = list.slice(0, Math.max(1, limit)).map(normalizeNotice);
+  return { volcano_slug: volcanoSlug ?? null, count: notices.length, notices };
 }
 
 export default { tools, callTool, meter: { credits: 1 } } satisfies McpToolExport;
