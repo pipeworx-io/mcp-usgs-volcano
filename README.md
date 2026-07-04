@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/pipeworx-io-mcp-usgs-volcano-badge.png)](https://mseep.ai/app/pipeworx-io-mcp-usgs-volcano)
+
 # mcp-usgs-volcano
 
 USGS Volcano MCP — Volcano Hazards Program HANS-public feed (no auth)
