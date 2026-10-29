@@ -1,0 +1,43 @@
+[
+  {
+    "name": "list_volcanoes",
+    "description": "List every US volcano monitored by USGS with current alert level (Normal/Advisory/Watch/Warning) and aviation color code (Green/Yellow/Orange/Red). Filter optionally by observatory.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "observatory": {
+          "type": "string",
+          "description": "Observatory short code (AVO=Alaska, CVO=Cascades, YVO=Yellowstone, HVO=Hawaiian, CalVO=California). Optional."
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "list_elevated",
+    "description": "List only the volcanoes currently above Normal/Green status (i.e., elevated unrest or eruption). Smallest practical fingerprint of \"what's happening right now.\"",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  },
+  {
+    "name": "list_notices",
+    "description": "Recent USGS volcano notices and reports — observatory updates, VAN (Volcano Activity Notice) and VONA (Volcano Observatory Notice for Aviation) text. Filter by volcano slug.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "volcano_slug": {
+          "type": "string",
+          "description": "USGS volcano slug (e.g., \"kilauea\", \"shishaldin\"). Optional — omit for all recent."
+        },
+        "limit": {
+          "type": "number",
+          "description": "Cap notices returned (default 50)"
+        }
+      },
+      "required": []
+    }
+  }
+]
