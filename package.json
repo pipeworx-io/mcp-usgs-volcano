@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-usgs-volcano",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "USGS Volcano MCP — Volcano Hazards Program HANS-public feed (no auth)",
   "type": "module",
   "main": "lib/index.js",
@@ -27,7 +27,7 @@
     "mode": "gateway",
     "slug": "usgs-volcano",
     "gatewaySlug": "usgs-volcano",
-    "sourceHash": "v1-26e619f2cf94dc85ae715f7a8fde45a9aadc5eedf79f95a69df3ccc125cab169",
-    "sourceCommit": "98853f34516646cb7c4c1460f09249b262c0269e"
+    "sourceHash": "v1-dd40c00163512213836cc3034b116200de44651f2f7020a5525fe8745082c2c9",
+    "sourceCommit": "ca52e7ed1e1ccad897c2da1b0fa105edc0bc3b2e"
   }
 }
